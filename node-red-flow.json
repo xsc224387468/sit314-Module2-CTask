@@ -1,0 +1,119 @@
+{
+  "id": "forest-fire-monitoring",
+  "label": "Forest Fire Monitoring System",
+  "nodes": [
+    {
+      "id": "heat_sensor_input",
+      "type": "mqtt in",
+      "name": "Heat Sensor Input",
+      "topic": "/forest_fire/heat_sensor",
+      "broker": "hive_mqtt_broker"
+    },
+    {
+      "id": "smoke_sensor_input",
+      "type": "mqtt in",
+      "name": "Smoke Sensor Input",
+      "topic": "/forest_fire/smoke_sensor",
+      "broker": "hive_mqtt_broker"
+    },
+    {
+      "id": "fire_sensor_input",
+      "type": "mqtt in",
+      "name": "Fire Sensor Input",
+      "topic": "/forest_fire/fire_sensor",
+      "broker": "hive_mqtt_broker"
+    },
+    {
+      "id": "wind_sensor_input",
+      "type": "mqtt in",
+      "name": "Wind Sensor Input",
+      "topic": "/forest_fire/wind_sensor",
+      "broker": "hive_mqtt_broker"
+    },
+    {
+      "id": "data_aggregator",
+      "type": "function",
+      "name": "Data Aggregator",
+      "func": "// Aggregate all sensor data\nvar sensorData = context.get('sensorData') || {};\n\n// Update data based on sensor type\nswitch(msg.payload.sensorType) {\n    case 'heat':\n        sensorData.heat = msg.payload;\n        break;\n    case 'smoke':\n        sensorData.smoke = msg.payload;\n        break;\n    case 'fire':\n        sensorData.fire = msg.payload;\n        break;\n    case 'wind':\n        sensorData.wind = msg.payload;\n        break;\n}\n\ncontext.set('sensorData', sensorData);\n\n// Only send when all sensors have data\nif (sensorData.heat && sensorData.smoke && sensorData.fire && sensorData.wind) {\n    msg.payload = sensorData;\n    return msg;\n}\n\nreturn null;"
+    },
+    {
+      "id": "risk_analyzer",
+      "type": "function",
+      "name": "Risk Analyzer",
+      "func": "// Analyze fire risk\nvar data = msg.payload;\nvar riskScore = 0;\nvar alerts = [];\n\n// Temperature risk assessment\nif (data.heat.temperature > 60) {\n    riskScore += 3;\n    alerts.push('High temperature: ' + data.heat.temperature + '°C');\n} else if (data.heat.temperature > 45) {\n    riskScore += 2;\n    alerts.push('Elevated temperature: ' + data.heat.temperature + '°C');\n} else if (data.heat.temperature > 35) {\n    riskScore += 1;\n}\n\n// Smoke risk assessment\nif (data.smoke.smokeLevel > 80) {\n    riskScore += 3;\n    alerts.push('High smoke level: ' + data.smoke.smokeLevel + '%');\n} else if (data.smoke.smokeLevel > 60) {\n    riskScore += 2;\n    alerts.push('Elevated smoke: ' + data.smoke.smokeLevel + '%');\n} else if (data.smoke.smokeLevel > 40) {\n    riskScore += 1;\n}\n\n// Fire detection\nif (data.fire.fireDetected) {\n    if (data.fire.fireIntensity > 70) {\n        riskScore += 4;\n        alerts.push('CRITICAL: Fire detected with high intensity!');\n    } else if (data.fire.fireIntensity > 40) {\n        riskScore += 3;\n        alerts.push('ALERT: Fire detected!');\n    } else {\n        riskScore += 2;\n        alerts.push('Warning: Fire detected');\n    }\n}\n\n// Wind speed risk assessment\nif (data.wind.windSpeed > 25) {\n    riskScore += 2;\n    alerts.push('Strong winds: ' + data.wind.windSpeed + ' km/h');\n} else if (data.wind.windSpeed > 15) {\n    riskScore += 1;\n}\n\n// Determine alert level\nvar alertLevel = 'NONE';\nif (riskScore >= 8) alertLevel = 'CRITICAL';\nelse if (riskScore >= 6) alertLevel = 'EMERGENCY';\nelse if (riskScore >= 4) alertLevel = 'ALERT';\nelse if (riskScore >= 2) alertLevel = 'WARNING';\n\nmsg.payload = {\n    riskScore: riskScore,\n    alertLevel: alertLevel,\n    alerts: alerts,\n    sensorData: data,\n    timestamp: new Date().toISOString()\n};\n\nreturn msg;"
+    },
+    {
+      "id": "homeowners_alert",
+      "type": "mqtt out",
+      "name": "Homeowners Alert",
+      "topic": "/forest_fire/alerts/homeowners",
+      "broker": "hive_mqtt_broker"
+    },
+    {
+      "id": "fire_service_alert",
+      "type": "mqtt out",
+      "name": "Fire Service Alert",
+      "topic": "/forest_fire/alerts/fire_service",
+      "broker": "hive_mqtt_broker"
+    },
+    {
+      "id": "news_alert",
+      "type": "mqtt out",
+      "name": "News Alert",
+      "topic": "/forest_fire/alerts/news",
+      "broker": "hive_mqtt_broker"
+    },
+    {
+      "id": "social_media_alert",
+      "type": "mqtt out",
+      "name": "Social Media Alert",
+      "topic": "/forest_fire/alerts/social_media",
+      "broker": "hive_mqtt_broker"
+    },
+    {
+      "id": "alert_router",
+      "type": "function",
+      "name": "Alert Router",
+      "func": "// Route to different outputs based on alert level\nvar data = msg.payload;\nvar alertLevel = data.alertLevel;\n\nif (alertLevel === 'WARNING') {\n    msg.topic = 'homeowners';\n    return [msg, null, null, null];\n} else if (alertLevel === 'ALERT') {\n    msg.topic = 'fire_service';\n    return [null, msg, null, null];\n} else if (alertLevel === 'EMERGENCY') {\n    msg.topic = 'news';\n    return [null, null, msg, null];\n} else if (alertLevel === 'CRITICAL') {\n    msg.topic = 'social_media';\n    return [null, null, null, msg];\n}\n\nreturn null;"
+    },
+    {
+      "id": "dashboard_display",
+      "type": "function",
+      "name": "Dashboard Display",
+      "func": "// Prepare display data for dashboard\nvar data = msg.payload;\nvar displayData = {\n    temperature: data.sensorData.heat ? data.sensorData.heat.temperature : 'N/A',\n    smokeLevel: data.sensorData.smoke ? data.sensorData.smoke.smokeLevel : 'N/A',\n    fireDetected: data.sensorData.fire ? data.sensorData.fire.fireDetected : false,\n    fireIntensity: data.sensorData.fire ? data.sensorData.fire.fireIntensity : 0,\n    windSpeed: data.sensorData.wind ? data.sensorData.wind.windSpeed : 'N/A',\n    riskScore: data.riskScore,\n    alertLevel: data.alertLevel,\n    timestamp: data.timestamp\n};\n\nmsg.payload = displayData;\nreturn msg;"
+    },
+    {
+      "id": "debug_output",
+      "type": "debug",
+      "name": "Debug Output"
+    }
+  ],
+  "configs": [
+    {
+      "id": "hive_mqtt_broker",
+      "type": "mqtt-broker-config",
+      "name": "Hive MQTT Broker",
+      "host": "broker.hivemq.com",
+      "port": "1883",
+      "clientid": "",
+      "usetls": false,
+      "compatmode": true,
+      "keepalive": "60",
+      "cleansession": true,
+      "birthTopic": "",
+      "birthQos": "0",
+      "birthPayload": "",
+      "birthMsg": {},
+      "closeTopic": "",
+      "closeQos": "0",
+      "closePayload": "",
+      "closeMsg": {},
+      "willTopic": "",
+      "willQos": "0",
+      "willPayload": "",
+      "willMsg": {},
+      "userProps": "",
+      "sessionExpiry": ""
+    }
+  ]
+} 

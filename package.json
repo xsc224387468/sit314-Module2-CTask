@@ -1,0 +1,22 @@
+{
+  "name": "forest-fire-monitoring-system",
+  "version": "1.0.0",
+  "description": "Advanced forest fire monitoring and alarm system using Node.js, MQTT, and Node-RED",
+  "main": "index.js",
+  "scripts": {
+    "start": "node main.js",
+    "sensor1": "node sensors/heat_sensor.js",
+    "sensor2": "node sensors/smoke_sensor.js", 
+    "sensor3": "node sensors/fire_sensor.js",
+    "sensor4": "node sensors/wind_sensor.js",
+    "alarm": "node alarm_system.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["forest-fire", "iot", "mqtt", "node-red", "monitoring"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "mqtt": "^5.3.5",
+    "node-cron": "^3.0.3"
+  }
+} 
